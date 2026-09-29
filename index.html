@@ -1,0 +1,794 @@
+
+<!DOCTYPE html>
+<html lang="en" data-theme="midnight">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flip Clock</title>
+<style>
+/* ============ THEMES ============ */
+:root{
+  --digit-h: 130px;
+  --gap: 14px;
+  --radius: 14px;
+  --depth: 16px;
+  --font-family: Impact, Haettenschweiler, "Arial Narrow Bold", system-ui, sans-serif;
+  --font-weight: 400;
+  --font-size: calc(var(--digit-h) * 0.80);
+  --letter-spacing: 0.02em;
+  --flip-ms: 0.32s;
+}
+html[data-theme="midnight"]{ --bg:#0b0d12; --bg2:#141822; --card:#181c26; --card2:#12151d; --text:#f3f5fa; --accent:#5b6cff; --muted:rgba(243,245,250,.45); }
+html[data-theme="paper"]   { --bg:#e9e7e0; --bg2:#f5f3ec; --card:#ffffff; --card2:#f0eee7; --text:#15171b; --accent:#e0603a; --muted:rgba(21,23,27,.45); }
+html[data-theme="neon"]    { --bg:#05010f; --bg2:#180733; --card:#140828; --card2:#0d0419; --text:#c6ff3d; --accent:#ff2ea6; --muted:rgba(198,255,61,.45); }
+html[data-theme="sunset"]  { --bg:#1a0f24; --bg2:#3b1b3f; --card:#2c1a3c; --card2:#221230; --text:#ffd9a0; --accent:#ff8a4c; --muted:rgba(255,217,160,.45); }
+html[data-theme="forest"]  { --bg:#08150f; --bg2:#12291e; --card:#143024; --card2:#0e2318; --text:#eafff4; --accent:#4ade80; --muted:rgba(234,255,244,.45); }
+html[data-theme="ice"]     { --bg:#eaf1fa; --bg2:#f8fbff; --card:#ffffff; --card2:#eff4fb; --text:#0d2338; --accent:#2f6fed; --muted:rgba(13,35,56,.45); }
+
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; }
+body{
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background:
+    radial-gradient(1200px 700px at 50% -10%, var(--bg2), transparent 70%),
+    var(--bg);
+  color: var(--text);
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden;
+  transition: background .35s ease, color .35s ease;
+}
+
+/* ============ STAGE ============ */
+.stage{
+  transform: scale(var(--fit, 1));
+  transform-origin: center center;
+  display:flex; flex-direction:column; align-items:center; gap:22px;
+  padding: 24px;
+}
+.caption{
+  font-size: 13px; letter-spacing: .34em; text-transform: uppercase;
+  color: var(--muted); text-align:center;
+}
+.caption:empty{ display:none; }
+
+.clock{ display:flex; align-items:flex-start; gap: var(--gap); }
+.group{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+.digits{ display:flex; gap: var(--gap); }
+.group-label{
+  font-size: 10px; letter-spacing: .28em; text-transform: uppercase; color: var(--muted);
+}
+body:not(.show-labels) .group-label{ display:none; }
+
+/* ============ FLIP UNIT ============ */
+.flip-unit{
+  position:relative;
+  width: calc(var(--digit-h) * 0.72);
+  height: var(--digit-h);
+  perspective: 900px;
+  font-family: var(--font-family);
+  font-weight: var(--font-weight);
+  font-size: var(--font-size);
+  letter-spacing: var(--letter-spacing);
+  border-radius: var(--radius);
+  box-shadow: 0 var(--depth) calc(var(--depth) * 1.4) rgba(0,0,0,.32), 0 2px 0 rgba(0,0,0,.15);
+  transition: box-shadow .3s ease, border-radius .2s ease;
+}
+.half{
+  position:absolute; left:0; width:100%; height:50%;
+  overflow:hidden; background: var(--card); color: var(--text);
+}
+.half.top{ top:0; border-radius: var(--radius) var(--radius) 0 0; background: linear-gradient(var(--card), var(--card)); }
+.half.bottom{ bottom:0; border-radius: 0 0 var(--radius) var(--radius); background: linear-gradient(var(--card2), var(--card2)); }
+.half .num{
+  position:absolute; left:0; width:100%; height: var(--digit-h);
+  line-height: var(--digit-h); text-align:center;
+}
+.half.top .num{ top:0; }
+.half.bottom .num{ top: calc(var(--digit-h) * -0.5); }
+
+/* depth shading */
+.half.top::after{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background: linear-gradient(to bottom, rgba(255,255,255,.05), rgba(0,0,0,.16));
+}
+.half.bottom::after{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background: linear-gradient(to bottom, rgba(0,0,0,.20), rgba(255,255,255,.03));
+}
+.flip-unit::after{
+  content:''; position:absolute; top:50%; left:0; right:0; height:2px;
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  z-index:7; pointer-events:none;
+}
+
+/* the two animated flaps */
+.flip-layer{
+  position:absolute; left:0; width:100%; height:50%;
+  overflow:hidden; backface-visibility:hidden;
+  visibility:hidden; color: var(--text);
+}
+.flip-layer .num{
+  position:absolute; left:0; width:100%; height: var(--digit-h);
+  line-height: var(--digit-h); text-align:center;
+}
+.flip-layer.top{
+  top:0; transform-origin: bottom center; z-index:6;
+  background: linear-gradient(var(--card), var(--card));
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.flip-layer.top .num{ top:0; }
+.flip-layer.bottom{
+  bottom:0; transform-origin: top center; z-index:5;
+  background: linear-gradient(var(--card2), var(--card2));
+  border-radius: 0 0 var(--radius) var(--radius);
+  transform: rotateX(90deg);
+}
+.flip-layer.bottom .num{ top: calc(var(--digit-h) * -0.5); }
+
+.flip-unit.animating .flip-layer{ visibility:visible; }
+.flip-unit.animating .flip-layer.top{ animation: flipTop calc(var(--flip-ms)) cubic-bezier(.36,0,.68,1) forwards; }
+.flip-unit.animating .flip-layer.bottom{ animation: flipBottom calc(var(--flip-ms)) cubic-bezier(.36,0,.68,1) forwards; }
+@keyframes flipTop{ from{ transform: rotateX(0deg); } to{ transform: rotateX(-90deg); } }
+@keyframes flipBottom{ from{ transform: rotateX(90deg); } to{ transform: rotateX(0deg); } }
+
+/* ============ SEPARATORS / AMPM ============ */
+.sep{
+  align-self:center;
+  display:flex; flex-direction:column; gap: calc(var(--digit-h) * 0.16);
+  padding: 0 calc(var(--gap) * 0.35);
+}
+.sep i{
+  width: calc(var(--digit-h) * 0.10); height: calc(var(--digit-h) * 0.10);
+  border-radius: 30%; background: var(--text); opacity:.85; display:block;
+}
+body.blink .sep i{ animation: blink 1s steps(1,end) infinite; }
+@keyframes blink{ 0%,50%{ opacity:.85 } 50.01%,100%{ opacity:.12 } }
+
+.ampm{
+  align-self:flex-start; margin-top: calc(var(--digit-h) * 0.30);
+  font-size: calc(var(--digit-h) * 0.20); font-weight:800; letter-spacing:.08em;
+  color: var(--accent);
+}
+body.fmt24 .ampm, body.ampm-off .ampm{ display:none; }
+body:not(.show-seconds) .seconds-group, body:not(.show-seconds) .seconds-sep{ display:none; }
+
+.date{
+  font-size:14px; letter-spacing:.12em; text-transform:uppercase; color: var(--muted);
+  text-align:center;
+}
+body:not(.show-date) .date{ display:none; }
+
+/* ============ TOOLBAR + PANEL ============ */
+.toolbar{
+  position:fixed; top:16px; right:16px; display:flex; gap:8px; z-index:40;
+}
+.icon-btn{
+  width:42px; height:42px; border-radius:12px; cursor:pointer;
+  border:1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  color: var(--text); font-size:18px; line-height:1;
+  display:grid; place-items:center;
+  backdrop-filter: blur(10px);
+  transition: transform .15s ease, background .2s ease;
+}
+.icon-btn:hover{ transform: translateY(-2px); background: color-mix(in srgb, var(--card) 100%, transparent); }
+
+.panel{
+  position:fixed; top:0; right:0; height:100%; width:330px; z-index:50;
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+  backdrop-filter: blur(18px);
+  border-left:1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  transform: translateX(102%);
+  transition: transform .35s cubic-bezier(.4,0,.2,1);
+  display:flex; flex-direction:column;
+}
+body.panel-open .panel{ transform: translateX(0); }
+.panel-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 20px 14px; border-bottom:1px solid color-mix(in srgb, var(--text) 10%, transparent);
+}
+.panel-head h2{ margin:0; font-size:14px; letter-spacing:.16em; text-transform:uppercase; }
+.panel-body{ overflow-y:auto; padding:16px 20px 40px; }
+.panel-body::-webkit-scrollbar{ width:8px; }
+.panel-body::-webkit-scrollbar-thumb{ background: color-mix(in srgb, var(--text) 20%, transparent); border-radius:8px; }
+
+fieldset{ border:0; margin:0 0 20px; padding:0; }
+legend{
+  font-size:10px; letter-spacing:.24em; text-transform:uppercase; color: var(--muted);
+  margin-bottom:12px; padding:0;
+}
+.row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:7px 0; }
+.row label{ font-size:13.5px; }
+.row .val{ font-size:11px; color: var(--muted); min-width:38px; text-align:right; font-variant-numeric: tabular-nums; }
+
+input[type="text"]{
+  width:100%; padding:9px 11px; border-radius:10px; font:inherit; font-size:13px;
+  border:1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  background: color-mix(in srgb, var(--bg) 60%, transparent); color: var(--text);
+}
+input[type="text"]::placeholder{ color: var(--muted); }
+
+select{
+  padding:8px 10px; border-radius:10px; font:inherit; font-size:13px;
+  border:1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  background: color-mix(in srgb, var(--bg) 60%, transparent); color: var(--text);
+}
+
+input[type="range"]{
+  -webkit-appearance:none; appearance:none; flex:1; height:4px; border-radius:4px;
+  background: color-mix(in srgb, var(--text) 22%, transparent); outline:none;
+}
+input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+  background: var(--accent); cursor:pointer; border:2px solid color-mix(in srgb, var(--card) 90%, transparent);
+}
+input[type="range"]::-moz-range-thumb{
+  width:16px; height:16px; border:2px solid color-mix(in srgb, var(--card) 90%, transparent);
+  border-radius:50%; background: var(--accent); cursor:pointer;
+}
+
+input[type="checkbox"]{
+  -webkit-appearance:none; appearance:none; width:42px; height:24px; border-radius:99px;
+  background: color-mix(in srgb, var(--text) 20%, transparent); position:relative; cursor:pointer;
+  transition: background .2s ease; flex:none;
+}
+input[type="checkbox"]::after{
+  content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%;
+  background:#fff; transition: transform .2s ease;
+}
+input[type="checkbox"]:checked{ background: var(--accent); }
+input[type="checkbox"]:checked::after{ transform: translateX(18px); }
+
+.swatches{ display:grid; grid-template-columns: repeat(6, 1fr); gap:8px; }
+.swatch{
+  aspect-ratio:1; border-radius:10px; cursor:pointer; border:2px solid transparent;
+  position:relative; overflow:hidden;
+}
+.swatch[data-active="1"]{ border-color: var(--accent); }
+.swatch span{
+  position:absolute; inset:0; display:block;
+}
+.swatch span:first-child{ background: var(--sw-bg); }
+.swatch span:last-child{ clip-path: polygon(0 100%, 100% 0, 100% 100%); background: var(--sw-card); }
+
+.colors{ display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+.color-field{ display:flex; flex-direction:column; gap:6px; align-items:center; }
+.color-field label{ font-size:10px; letter-spacing:.1em; text-transform:uppercase; color: var(--muted); }
+input[type="color"]{
+  -webkit-appearance:none; appearance:none; width:100%; height:34px; padding:0; cursor:pointer;
+  border-radius:10px; border:1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  background:transparent;
+}
+input[type="color"]::-webkit-color-swatch-wrapper{ padding:2px; }
+input[type="color"]::-webkit-color-swatch{ border:none; border-radius:8px; }
+
+.btn{
+  width:100%; padding:11px; border-radius:11px; cursor:pointer; font:inherit; font-size:13px; font-weight:600;
+  border:1px solid color-mix(in srgb, var(--text) 20%, transparent);
+  background: color-mix(in srgb, var(--bg) 55%, transparent); color: var(--text);
+  transition: background .2s ease;
+}
+.btn:hover{ background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.btn.primary{ background: var(--accent); color: #fff; border-color: transparent; }
+
+.hint{ font-size:11px; color: var(--muted); line-height:1.5; margin-top:6px; }
+
+body.zen .toolbar, body.zen .panel{ opacity:0; pointer-events:none; }
+.toolbar{ transition: opacity .3s ease; }
+.panel{ transition: transform .35s cubic-bezier(.4,0,.2,1), opacity .3s ease; }
+
+@media (max-width: 720px){
+  .panel{ width:100%; height:72%; top:auto; bottom:0; border-left:0; border-top:1px solid color-mix(in srgb, var(--text) 12%, transparent); border-radius:20px 20px 0 0; transform: translateY(103%); }
+  body.panel-open .panel{ transform: translateY(0); }
+  .stage{ padding:16px; }
+}
+</style>
+</head>
+<body class="show-seconds show-date blink">
+
+<div class="stage" id="stage">
+  <div class="caption" id="caption"></div>
+
+  <div class="clock" id="clock">
+    <div class="group">
+      <div class="digits">
+        <div class="flip-unit" data-index="0">
+          <div class="half top"><div class="num">0</div></div>
+          <div class="half bottom"><div class="num">0</div></div>
+          <div class="flip-layer top"><div class="num">0</div></div>
+          <div class="flip-layer bottom"><div class="num">0</div></div>
+        </div>
+        <div class="flip-unit" data-index="1">
+          <div class="half top"><div class="num">0</div></div>
+          <div class="half bottom"><div class="num">0</div></div>
+          <div class="flip-layer top"><div class="num">0</div></div>
+          <div class="flip-layer bottom"><div class="num">0</div></div>
+        </div>
+      </div>
+      <div class="group-label">Hours</div>
+    </div>
+
+    <div class="sep"><i></i><i></i></div>
+
+    <div class="group">
+      <div class="digits">
+        <div class="flip-unit" data-index="2">
+          <div class="half top"><div class="num">0</div></div>
+          <div class="half bottom"><div class="num">0</div></div>
+          <div class="flip-layer top"><div class="num">0</div></div>
+          <div class="flip-layer bottom"><div class="num">0</div></div>
+        </div>
+        <div class="flip-unit" data-index="3">
+          <div class="half top"><div class="num">0</div></div>
+          <div class="half bottom"><div class="num">0</div></div>
+          <div class="flip-layer top"><div class="num">0</div></div>
+          <div class="flip-layer bottom"><div class="num">0</div></div>
+        </div>
+      </div>
+      <div class="group-label">Minutes</div>
+    </div>
+
+    <div class="sep seconds-sep"><i></i><i></i></div>
+
+    <div class="group seconds-group">
+      <div class="digits">
+        <div class="flip-unit" data-index="4">
+          <div class="half top"><div class="num">0</div></div>
+          <div class="half bottom"><div class="num">0</div></div>
+          <div class="flip-layer top"><div class="num">0</div></div>
+          <div class="flip-layer bottom"><div class="num">0</div></div>
+        </div>
+        <div class="flip-unit" data-index="5">
+          <div class="half top"><div class="num">0</div></div>
+          <div class="half bottom"><div class="num">0</div></div>
+          <div class="flip-layer top"><div class="num">0</div></div>
+          <div class="flip-layer bottom"><div class="num">0</div></div>
+        </div>
+      </div>
+      <div class="group-label">Seconds</div>
+    </div>
+
+    <div class="ampm" id="ampm">AM</div>
+  </div>
+
+  <div class="date" id="date"></div>
+</div>
+
+<div class="toolbar">
+  <button class="icon-btn" id="btnFull" title="Fullscreen">&#9974;</button>
+  <button class="icon-btn" id="btnPanel" title="Customise">&#9881;</button>
+</div>
+
+<aside class="panel" id="panel">
+  <div class="panel-head">
+    <h2>Customise</h2>
+    <button class="icon-btn" id="btnClose" title="Close">&#10005;</button>
+  </div>
+
+  <div class="panel-body">
+
+    <fieldset>
+      <legend>Display</legend>
+      <div class="row">
+        <label for="caption">Caption</label>
+      </div>
+      <input type="text" id="captionInput" placeholder="e.g. Studio Clock — London" maxlength="48">
+
+      <div class="row">
+        <label for="c24">24-hour time</label>
+        <input type="checkbox" id="c24" checked>
+      </div>
+      <div class="row">
+        <label for="cSec">Show seconds</label>
+        <input type="checkbox" id="cSec" checked>
+      </div>
+      <div class="row">
+        <label for="cDate">Show date</label>
+        <input type="checkbox" id="cDate" checked>
+      </div>
+      <div class="row">
+        <label for="cLabels">Digit labels</label>
+        <input type="checkbox" id="cLabels">
+      </div>
+      <div class="row">
+        <label for="cBlink">Blinking colons</label>
+        <input type="checkbox" id="cBlink" checked>
+      </div>
+      <div class="row">
+        <label for="cSound">Flip sound</label>
+        <input type="checkbox" id="cSound">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Theme</legend>
+      <div class="swatches" id="swatches"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Type</legend>
+      <div class="row">
+        <label for="fontSel">Font</label>
+        <select id="fontSel">
+          <option value="display">Display</option>
+          <option value="mono">Monospace</option>
+          <option value="sans">Sans</option>
+          <option value="serif">Serif</option>
+        </select>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Shape &amp; Size</legend>
+      <div class="row">
+        <label for="rHeight">Digit height</label>
+        <input type="range" id="rHeight" min="60" max="220" step="2">
+        <span class="val" id="vHeight"></span>
+      </div>
+      <div class="row">
+        <label for="rGap">Gap</label>
+        <input type="range" id="rGap" min="0" max="40" step="1">
+        <span class="val" id="vGap"></span>
+      </div>
+      <div class="row">
+        <label for="rRadius">Corner radius</label>
+        <input type="range" id="rRadius" min="0" max="40" step="1">
+        <span class="val" id="vRadius"></span>
+      </div>
+      <div class="row">
+        <label for="rDepth">3D depth</label>
+        <input type="range" id="rDepth" min="0" max="44" step="1">
+        <span class="val" id="vDepth"></span>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Custom colours <span style="text-transform:none;letter-spacing:0">(override theme)</span></legend>
+      <div class="colors">
+        <div class="color-field"><label>Accent</label><input type="color" id="colAccent" value="#5b6cff"></div>
+        <div class="color-field"><label>Card</label><input type="color" id="colCard" value="#181c26"></div>
+        <div class="color-field"><label>Background</label><input type="color" id="colBg" value="#0b0d12"></div>
+      </div>
+      <div class="hint">Pick any colour to override the theme. Use Reset to clear overrides.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Options</legend>
+      <button class="btn" id="btnZen">Hide interface (press H)</button>
+      <div class="hint">H hides the panel and buttons. Press H again to bring them back. Settings are saved in this browser automatically.</div>
+      <div style="height:10px"></div>
+      <button class="btn" id="btnReset">Reset to defaults</button>
+    </fieldset>
+
+  </div>
+</aside>
+
+<script>
+(function(){
+  "use strict";
+
+  var FLIP_MS = 340;
+  var THEMES = [
+    { id:'midnight', bg:'#0b0d12', card:'#181c26', accent:'#5b6cff' },
+    { id:'paper',    bg:'#e9e7e0', card:'#ffffff', accent:'#e0603a' },
+    { id:'neon',     bg:'#05010f', card:'#140828', accent:'#ff2ea6' },
+    { id:'sunset',   bg:'#1a0f24', card:'#2c1a3c', accent:'#ff8a4c' },
+    { id:'forest',   bg:'#08150f', card:'#143024', accent:'#4ade80' },
+    { id:'ice',      bg:'#eaf1fa', card:'#ffffff', accent:'#2f6fed' }
+  ];
+
+  var FONTS = {
+    display: { family:'Impact, Haettenschweiler, "Arial Narrow Bold", system-ui, sans-serif', weight:'400', size:0.80, ls:'0.02em' },
+    mono:    { family:'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace', weight:'700', size:0.62, ls:'0em' },
+    sans:    { family:'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', weight:'800', size:0.70, ls:'-0.02em' },
+    serif:   { family:'Georgia, "Times New Roman", serif', weight:'700', size:0.68, ls:'0em' }
+  };
+
+  var DEFAULTS = {
+    caption: '',
+    format24: true,
+    seconds: true,
+    date: true,
+    labels: false,
+    blink: true,
+    sound: false,
+    theme: 'midnight',
+    font: 'display',
+    height: 130,
+    gap: 14,
+    radius: 14,
+    depth: 16,
+    accent: '',
+    card: '',
+    bg: ''
+  };
+
+  var S = {};
+  try { Object.assign(S, DEFAULTS, JSON.parse(localStorage.getItem('flipclock.settings') || '{}')); }
+  catch(e){ Object.assign(S, DEFAULTS); }
+
+  function save(){
+    try { localStorage.setItem('flipclock.settings', JSON.stringify(S)); } catch(e){}
+  }
+
+  var root = document.documentElement;
+  var units = [].slice.call(document.querySelectorAll('.flip-unit'));
+  var captionEl = document.getElementById('caption');
+  var dateEl = document.getElementById('date');
+  var ampmEl = document.getElementById('ampm');
+  var clockEl = document.getElementById('clock');
+  var stageEl = document.getElementById('stage');
+
+  /* ---------- audio ---------- */
+  var actx = null;
+  function tickSound(index){
+    if(!S.sound) return;
+    try{
+      if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if(actx.state === 'suspended') actx.resume();
+      var t = actx.currentTime;
+      var osc = actx.createOscillator();
+      var gain = actx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = 820 + index * 45;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.055, t + 0.004);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      osc.connect(gain); gain.connect(actx.destination);
+      osc.start(t); osc.stop(t + 0.06);
+    }catch(e){}
+  }
+
+  /* ---------- flip engine ---------- */
+  function renderUnit(unit, value, animate){
+    var cur = unit.dataset.value || '';
+    if(cur === value) return;
+
+    var sTop = unit.querySelector('.half.top .num');
+    var sBot = unit.querySelector('.half.bottom .num');
+    var fTop = unit.querySelector('.flip-layer.top .num');
+    var fBot = unit.querySelector('.flip-layer.bottom .num');
+
+    if(!animate || cur === ''){
+      sTop.textContent = value;
+      sBot.textContent = value;
+      unit.dataset.value = value;
+      return;
+    }
+
+    fTop.textContent = cur;
+    fBot.textContent = value;
+    sTop.textContent = value;   // revealed underneath as the flap falls
+    sBot.textContent = cur;     // stays until the lower flap covers it
+
+    unit.classList.add('animating');
+    clearTimeout(unit._timer);
+    unit._timer = setTimeout(function(){
+      unit.classList.remove('animating');
+      sTop.textContent = value;
+      sBot.textContent = value;
+      unit.dataset.value = value;
+    }, FLIP_MS);
+  }
+
+  var lastStr = '';
+  function tick(force){
+    var now = new Date();
+    var h = now.getHours();
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    if(!S.format24) h = (h % 12) || 12;
+
+    var str = String(h).padStart(2,'0')
+            + String(now.getMinutes()).padStart(2,'0')
+            + String(now.getSeconds()).padStart(2,'0');
+
+    var animate = (lastStr !== '') && !force;
+
+    for(var i = 0; i < 6; i++){
+      var next = str.charAt(i);
+      if(force || lastStr.charAt(i) !== next){
+        var u = units[i];
+        var finished = (u.dataset.value === next);
+        renderUnit(u, next, animate);
+        if(animate && !finished && S.sound && i >= 2) tickSound(i);
+      }
+    }
+
+    ampmEl.textContent = ampm;
+
+    if(S.date){
+      try{
+        dateEl.textContent = new Intl.DateTimeFormat(undefined, {
+          weekday:'long', day:'numeric', month:'long', year:'numeric'
+        }).format(now);
+      }catch(e){
+        dateEl.textContent = now.toDateString();
+      }
+    }
+
+    lastStr = str;
+  }
+
+  /* ---------- apply settings ---------- */
+  function apply(force){
+    root.dataset.theme = S.theme;
+
+    var f = FONTS[S.font] || FONTS.display;
+    root.style.setProperty('--font-family', f.family);
+    root.style.setProperty('--font-weight', f.weight);
+    root.style.setProperty('--letter-spacing', f.ls);
+    root.style.setProperty('--digit-h', S.height + 'px');
+    root.style.setProperty('--font-size', Math.round(S.height * f.size) + 'px');
+    root.style.setProperty('--gap', S.gap + 'px');
+    root.style.setProperty('--radius', S.radius + 'px');
+    root.style.setProperty('--depth', S.depth + 'px');
+
+    if(S.accent) root.style.setProperty('--accent', S.accent); else root.style.removeProperty('--accent');
+    if(S.card)   root.style.setProperty('--card', S.card);     else root.style.removeProperty('--card');
+    if(S.bg)     root.style.setProperty('--bg', S.bg);         else root.style.removeProperty('--bg');
+
+    var b = document.body.classList;
+    b.toggle('fmt24', !!S.format24);
+    b.toggle('show-seconds', !!S.seconds);
+    b.toggle('show-date', !!S.date);
+    b.toggle('show-labels', !!S.labels);
+    b.toggle('blink', !!S.blink);
+
+    captionEl.textContent = S.caption || '';
+
+    // reflect UI
+    setCheck('c24', S.format24);
+    setCheck('cSec', S.seconds);
+    setCheck('cDate', S.date);
+    setCheck('cLabels', S.labels);
+    setCheck('cBlink', S.blink);
+    setCheck('cSound', S.sound);
+    document.getElementById('captionInput').value = S.caption;
+    document.getElementById('fontSel').value = S.font;
+    setRange('rHeight', S.height, 'vHeight');
+    setRange('rGap', S.gap, 'vGap');
+    setRange('rRadius', S.radius, 'vRadius');
+    setRange('rDepth', S.depth, 'vDepth');
+    document.getElementById('colAccent').value = S.accent || themeColor('accent');
+    document.getElementById('colCard').value   = S.card   || themeColor('card');
+    document.getElementById('colBg').value     = S.bg     || themeColor('bg');
+
+    [].forEach.call(document.querySelectorAll('.swatch'), function(sw){
+      sw.dataset.active = (sw.dataset.theme === S.theme) ? '1' : '0';
+    });
+
+    tick(true);
+    requestAnimationFrame(fit);
+    save();
+  }
+
+  function themeColor(key){
+    var hex = { accent:'#5b6cff', card:'#181c26', bg:'#0b0d12' };
+    for(var i=0;i<THEMES.length;i++){
+      if(THEMES[i].id === S.theme){ hex = THEMES[i]; break; }
+    }
+    return hex[key];
+  }
+
+  function setCheck(id, v){ document.getElementById(id).checked = !!v; }
+  function setRange(id, v, outId){
+    document.getElementById(id).value = v;
+    document.getElementById(outId).textContent = v;
+  }
+
+  /* ---------- fit to viewport ---------- */
+  function fit(){
+    var wide = clockEl.scrollWidth + 60;
+    var avail = window.innerWidth - (window.innerWidth > 720 ? 380 : 40);
+    var tall = clockEl.scrollHeight;
+    var availH = window.innerHeight - 160;
+    var s = Math.min(1, avail / wide, availH / Math.max(tall, 1));
+    stageEl.style.setProperty('--fit', Math.max(0.28, s));
+  }
+
+  /* ---------- controls ---------- */
+  function bindCheck(id, key){
+    document.getElementById(id).addEventListener('change', function(e){
+      S[key] = e.target.checked; apply();
+    });
+  }
+  bindCheck('c24', 'format24');
+  bindCheck('cSec', 'seconds');
+  bindCheck('cDate', 'date');
+  bindCheck('cLabels', 'labels');
+  bindCheck('cBlink', 'blink');
+  bindCheck('cSound', 'sound');
+
+  function bindRange(id, key, outId){
+    document.getElementById(id).addEventListener('input', function(e){
+      S[key] = parseInt(e.target.value, 10);
+      document.getElementById(outId).textContent = e.target.value;
+      apply();
+    });
+  }
+  bindRange('rHeight', 'height', 'vHeight');
+  bindRange('rGap', 'gap', 'vGap');
+  bindRange('rRadius', 'radius', 'vRadius');
+  bindRange('rDepth', 'depth', 'vDepth');
+
+  document.getElementById('fontSel').addEventListener('change', function(e){
+    S.font = e.target.value; apply();
+  });
+
+  document.getElementById('captionInput').addEventListener('input', function(e){
+    S.caption = e.target.value; apply();
+  });
+
+  document.getElementById('colAccent').addEventListener('input', function(e){ S.accent = e.target.value; apply(); });
+  document.getElementById('colCard').addEventListener('input',   function(e){ S.card   = e.target.value; apply(); });
+  document.getElementById('colBg').addEventListener('input',     function(e){ S.bg     = e.target.value; apply(); });
+
+  // theme swatches
+  var swWrap = document.getElementById('swatches');
+  THEMES.forEach(function(t){
+    var d = document.createElement('button');
+    d.className = 'swatch';
+    d.dataset.theme = t.id;
+    d.title = t.id;
+    d.style.setProperty('--sw-bg', t.bg);
+    d.style.setProperty('--sw-card', t.card);
+    d.innerHTML = '<span></span><span></span>';
+    d.addEventListener('click', function(){
+      S.theme = t.id; apply();
+    });
+    swWrap.appendChild(d);
+  });
+
+  // panel open/close
+  var panelBtn = document.getElementById('btnPanel');
+  panelBtn.addEventListener('click', function(){ document.body.classList.toggle('panel-open'); });
+  document.getElementById('btnClose').addEventListener('click', function(){
+    document.body.classList.remove('panel-open');
+  });
+  document.addEventListener('click', function(e){
+    if(!document.body.classList.contains('panel-open')) return;
+    if(e.target.closest('.panel') || e.target.closest('#btnPanel')) return;
+    document.body.classList.remove('panel-open');
+  });
+
+  // zen mode
+  function toggleZen(){ document.body.classList.toggle('zen'); }
+  document.getElementById('btnZen').addEventListener('click', toggleZen);
+
+  // fullscreen (best effort inside embedded frames)
+  document.getElementById('btnFull').addEventListener('click', function(){
+    try{
+      if(!document.fullscreenElement){
+        var p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+        if(p && p.catch) p.catch(function(){ toggleZen(); });
+      } else if(document.exitFullscreen){
+        document.exitFullscreen();
+      }
+    }catch(e){ toggleZen(); }
+  });
+
+  // reset
+  document.getElementById('btnReset').addEventListener('click', function(){
+    Object.assign(S, DEFAULTS);
+    apply(true);
+  });
+
+  // keyboard: H = zen, C = panel, F = fullscreen
+  document.addEventListener('keydown', function(e){
+    var k = e.key.toLowerCase();
+    if(k === 'h'){ toggleZen(); }
+    else if(k === 'c'){ document.body.classList.toggle('panel-open'); }
+    else if(k === 'f'){ document.getElementById('btnFull').click(); }
+  });
+
+  window.addEventListener('resize', fit);
+
+  /* ---------- go ---------- */
+  apply(true);
+  tick(true);
+  setInterval(tick, 200);
+})();
+</script>
+</body>
+</html>
