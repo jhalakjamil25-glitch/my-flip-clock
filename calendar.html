@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Notion Calendar</title>
+<style>
+  :root{
+    --bg:#FAF9F4;
+    --accent:#DDD9F5;   /* header / today ring */
+    --today:#F9D9E2;    /* today fill          */
+    --text:#2B2B2B;
+    --muted:#6E6A7C;
+    --cell:#FFFFFF;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);overflow:hidden;
+    font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .cal{width:100%;max-width:520px;padding:12px 14px}
+  .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .title{font-family:"Playfair Display",Georgia,serif;font-size:22px;letter-spacing:.02em}
+  .nav{display:flex;gap:6px;align-items:center}
+  .nav button{
+    border:0;background:var(--accent);color:#2B2B2B;width:28px;height:28px;border-radius:50%;
+    cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center
+  }
+  .nav button:hover{filter:brightness(.95)}
+  .today-btn{border:0;background:transparent;color:var(--muted);font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;cursor:pointer;padding:4px 6px}
+  table{width:100%;border-collapse:separate;border-spacing:0 3px}
+  th{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:4px 0}
+  td{text-align:center;padding:0}
+  .d{
+    position:relative;height:44px;border-radius:var(--radius);background:var(--cell);
+    display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text);
+    border:1px solid rgba(0,0,0,.04);transition:transform .12s
+  }
+  .d.out{background:transparent;border-color:transparent;color:var(--muted);opacity:.45}
+  .d.today{background:var(--today);font-weight:700;box-shadow:inset 0 0 0 2px var(--accent)}
+  .d.weekend{color:var(--muted)}
+  .d:hover{transform:translateY(-1px)}
+  .d .dot{position:absolute;bottom:5px;width:4px;height:4px;border-radius:50%;background:var(--accent)}
+  .legend{display:flex;gap:14px;justify-content:center;margin-top:9px;font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  #gear{position:fixed;top:8px;right:8px;width:26px;height:26px;border:0;border-radius:50%;
+    background:var(--accent);color:#2B2B2B;cursor:pointer;font-size:13px;opacity:.55}
+  #gear:hover{opacity:1}
+  #panel{position:fixed;inset:0;background:rgba(250,249,244,.98);display:none;flex-direction:column;
+    gap:9px;padding:16px;font-size:12px;overflow:auto}
+  #panel.open{display:flex}
+  #panel h3{margin:0 0 2px;font-size:13px;letter-spacing:.12em;text-transform:uppercase}
+  .f{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .f label{color:var(--muted)}
+  input[type=color]{width:42px;height:24px;border:1px solid #ddd;border-radius:6px;padding:0;background:#fff;cursor:pointer}
+  select,button{font-family:inherit;font-size:12px;border:1px solid #ddd;border-radius:8px;padding:4px 8px;background:#fff;cursor:pointer}
+  .swatches{display:flex;gap:6px;flex-wrap:wrap}
+  .sw{width:22px;height:22px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #ddd;cursor:pointer}
+  .close{background:#2B2B2B;color:#fff;border:0;padding:7px 12px;border-radius:8px;letter-spacing:.08em}
+  textarea{width:100%;height:52px;font-family:inherit;font-size:11px;border:1px solid #ddd;border-radius:8px;padding:6px}
+</style>
+</head>
+<body>
+  <button id="gear" title="Customise">⚙</button>
+
+  <div class="cal">
+    <div class="head">
+      <div class="title" id="mtitle">Month</div>
+      <div class="nav">
+        <button id="prev" title="Previous month">‹</button>
+        <button class="today-btn" id="todayBtn">Today</button>
+        <button id="next" title="Next month">›</button>
+      </div>
+    </div>
+    <table>
+      <thead><tr id="dow"></tr></thead>
+      <tbody id="grid"></tbody>
+    </table>
+    <div class="legend">
+      <span><i style="background:var(--today)"></i>Today</span>
+      <span><i style="background:var(--accent)"></i>Highlighted</span>
+    </div>
+  </div>
+
+  <div id="panel">
+    <h3>Customise your calendar</h3>
+    <div class="f"><label>Palette presets</label>
+      <div class="swatches">
+        <span class="sw" data-bg="#FAF9F4" data-accent="#DDD9F5" data-today="#F9D9E2" style="background:#DDD9F5"></span>
+        <span class="sw" data-bg="#FAF9F4" data-accent="#F9D9E2" data-today="#DDD9F5" style="background:#F9D9E2"></span>
+        <span class="sw" data-bg="#FAF9F4" data-accent="#D6F0DC" data-today="#D8E8F8" style="background:#D6F0DC"></span>
+        <span class="sw" data-bg="#FAF9F4" data-accent="#D8E8F8" data-today="#FAE0D3" style="background:#D8E8F8"></span>
+        <span class="sw" data-bg="#FAF9F4" data-accent="#FAE0D3" data-today="#F8F5CF" style="background:#FAE0D3"></span>
+        <span class="sw" data-bg="#FAF9F4" data-accent="#F8F5CF" data-today="#D6F0DC" style="background:#F8F5CF"></span>
+      </div>
+    </div>
+    <div class="f"><label>Background</label><input type="color" id="i-bg"></div>
+    <div class="f"><label>Accent</label><input type="color" id="i-accent"></div>
+    <div class="f"><label>Today</label><input type="color" id="i-today"></div>
+    <div class="f"><label>Text</label><input type="color" id="i-text"></div>
+    <div class="f"><label>Week starts on</label>
+      <select id="i-start"><option value="1">Monday</option><option value="0">Sunday</option></select>
+    </div>
+    <div class="f"><label>Show weekends in grey</label><input type="checkbox" id="i-grey"></div>
+    <div>
+      <label style="color:#6E6A7C;display:block;margin-bottom:4px">Highlight dates (YYYY-MM-DD, comma separated)</label>
+      <textarea id="i-dates" placeholder="2027-01-14, 2027-01-21"></textarea>
+    </div>
+    <div class="f"><button class="close" id="reset">Reset</button><button class="close" id="done">Done</button></div>
+  </div>
+
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i)};
+  var root=document.documentElement;
+  var D={bg:"#FAF9F4",accent:"#DDD9F5",today:"#F9D9E2",text:"#2B2B2B",start:1,grey:false,dates:""};
+  var cfg=Object.assign({},D);
+  try{cfg=Object.assign(cfg,JSON.parse(localStorage.getItem("creaoCalCfg")||"{}"));}catch(e){}
+  var view=new Date();view.setDate(1);
+  var MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+  function hl(){
+    return cfg.dates.split(",").map(function(s){return s.trim()}).filter(Boolean);
+  }
+  function iso(y,m,d){return y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0")}
+
+  function draw(){
+    root.style.setProperty("--bg",cfg.bg);
+    root.style.setProperty("--accent",cfg.accent);
+    root.style.setProperty("--today",cfg.today);
+    root.style.setProperty("--text",cfg.text);
+    $("i-bg").value=cfg.bg;$("i-accent").value=cfg.accent;$("i-today").value=cfg.today;$("i-text").value=cfg.text;
+    $("i-start").value=String(cfg.start);$("i-grey").checked=cfg.grey;$("i-dates").value=cfg.dates;
+    try{localStorage.setItem("creaoCalCfg",JSON.stringify(cfg));}catch(e){}
+
+    var y=view.getFullYear(),m=view.getMonth();
+    $("mtitle").textContent=MONTHS[m]+" "+y;
+
+    var names=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    var order=[];for(var i=0;i<7;i++)order.push((cfg.start+i)%7);
+    $("dow").innerHTML=order.map(function(d){return "<th>"+names[d]+"</th>"}).join("");
+
+    var first=new Date(y,m,1).getDay();
+    var lead=(first-cfg.start+7)%7;
+    var days=new Date(y,m+1,0).getDate();
+    var prevDays=new Date(y,m,0).getDate();
+    var today=new Date();var tIso=iso(today.getFullYear(),today.getMonth(),today.getDate());
+    var marks=hl();
+    var cells=[];var total=Math.ceil((lead+days)/7)*7;
+
+    for(var i=0;i<total;i++){
+      var num,out=false,mi=m,my=y;
+      if(i<lead){num=prevDays-lead+1+i;out=true;mi=m-1;if(mi<0){mi=11;my=y-1;}}
+      else if(i>=lead+days){num=i-(lead+days)+1;out=true;mi=m+1;if(mi>11){mi=0;my=y+1;}}
+      else num=i-lead+1;
+      var dIso=iso(my,mi,num);
+      var dow=(cfg.start+i)%7;
+      var cls="d"+(out?" out":"")+(dIso===tIso&&!out?" today":"")+((cfg.grey&&(dow===0||dow===6)&&!out)?" weekend":"");
+      var dot=(!out&&marks.indexOf(dIso)>-1)?"<span class='dot'></span>":"";
+      cells.push("<td><div class='"+cls+"'>"+num+dot+"</div></td>");
+      if((i+1)%7===0)cells.push("</tr><tr>");
+    }
+    var html=cells.join("");
+    html=html.replace(/<\/tr><tr>$/,"");
+    $("grid").innerHTML=html;
+  }
+
+  $("prev").onclick=function(){view.setMonth(view.getMonth()-1);draw()};
+  $("next").onclick=function(){view.setMonth(view.getMonth()+1);draw()};
+  $("todayBtn").onclick=function(){view=new Date();view.setDate(1);draw()};
+  $("gear").onclick=function(){$("panel").classList.add("open")};
+  $("done").onclick=function(){$("panel").classList.remove("open")};
+  $("reset").onclick=function(){cfg=Object.assign({},D);draw()};
+  $("i-bg").oninput=function(){cfg.bg=this.value;draw()};
+  $("i-accent").oninput=function(){cfg.accent=this.value;draw()};
+  $("i-today").oninput=function(){cfg.today=this.value;draw()};
+  $("i-text").oninput=function(){cfg.text=this.value;draw()};
+  $("i-start").onchange=function(){cfg.start=parseInt(this.value,10);draw()};
+  $("i-grey").onchange=function(){cfg.grey=this.checked;draw()};
+  $("i-dates").oninput=function(){cfg.dates=this.value;draw()};
+  Array.prototype.forEach.call(document.querySelectorAll(".sw"),function(el){
+    el.onclick=function(){cfg.bg=el.dataset.bg;cfg.accent=el.dataset.accent;cfg.today=el.dataset.today;draw()};
+  });
+  draw();
+})();
+</script>
+</body>
+</html>
