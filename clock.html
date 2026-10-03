@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Notion Flip Clock</title>
+<style>
+  :root{
+    --bg:#F9D9E2;        /* widget background  */
+    --card:#2B2B2B;      /* flip card          */
+    --digit:#FFFFFF;     /* digit colour       */
+    --sub:#2B2B2B;       /* day / date colour  */
+    --accent:#DDD9F5;    /* badge / gear       */
+    --radius:14px;
+    --scale:1;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;display:flex;align-items:center;justify-content:center;
+    background:var(--bg);color:var(--sub);
+    font-family:"Playfair Display",Georgia,"Times New Roman",serif;
+    -webkit-font-smoothing:antialiased;overflow:hidden;
+  }
+  .wrap{text-align:center;padding:10px 14px;transform:scale(var(--scale))}
+  .row{display:flex;align-items:center;justify-content:center;gap:8px}
+  .card{
+    position:relative;background:var(--card);color:var(--digit);
+    border-radius:var(--radius);min-width:74px;padding:10px 6px 12px;
+    font-size:52px;line-height:1;letter-spacing:1px;
+    box-shadow:0 6px 16px rgba(0,0,0,.22);
+  }
+  .card::after{content:"";position:absolute;left:8px;right:8px;top:50%;height:1px;background:rgba(255,255,255,.16)}
+  .card.small{font-size:30px;min-width:48px;padding:8px 5px 10px}
+  .colon{font-size:40px;color:var(--digit);opacity:.85}
+  .meridiem{
+    font-family:Inter,system-ui,sans-serif;font-size:12px;letter-spacing:.14em;
+    background:var(--accent);color:#2B2B2B;border-radius:999px;padding:5px 9px;margin-left:4px;
+  }
+  .day{
+    margin-top:14px;font-family:Inter,system-ui,sans-serif;
+    font-size:15px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--sub);
+  }
+  .date{
+    margin-top:4px;font-family:Inter,system-ui,sans-serif;
+    font-size:14px;letter-spacing:.05em;color:var(--sub);opacity:.8;
+  }
+  #gear{
+    position:fixed;top:8px;right:8px;width:26px;height:26px;border:0;border-radius:50%;
+    background:var(--accent);color:#2B2B2B;cursor:pointer;font-size:13px;line-height:1;
+    display:flex;align-items:center;justify-content:center;opacity:.55;transition:opacity .2s
+  }
+  #gear:hover{opacity:1}
+  #panel{
+    position:fixed;inset:0;background:rgba(250,249,244,.97);
+    display:none;flex-direction:column;gap:9px;padding:16px;
+    font-family:Inter,system-ui,sans-serif;font-size:12px;text-align:left;overflow:auto
+  }
+  #panel.open{display:flex}
+  #panel h3{margin:0 0 2px;font-size:13px;letter-spacing:.12em;text-transform:uppercase}
+  .f{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .f label{color:#6E6A7C}
+  input[type=color]{width:42px;height:24px;border:1px solid #ddd;border-radius:6px;background:#fff;padding:0;cursor:pointer}
+  input[type=range]{width:110px}
+  select,button{font-family:inherit;font-size:12px;border:1px solid #ddd;border-radius:8px;padding:4px 8px;background:#fff;cursor:pointer}
+  .swatches{display:flex;gap:6px;flex-wrap:wrap}
+  .sw{width:22px;height:22px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #ddd;cursor:pointer}
+  .close{margin-top:4px;background:#2B2B2B;color:#fff;border:0;padding:7px 12px;border-radius:8px;letter-spacing:.08em}
+</style>
+</head>
+<body>
+  <button id="gear" title="Customise">⚙</button>
+
+  <div class="wrap">
+    <div class="row">
+      <div class="card" id="h">00</div>
+      <div class="colon">:</div>
+      <div class="card" id="m">00</div>
+      <div class="colon" id="c2">:</div>
+      <div class="card small" id="s">00</div>
+      <div class="meridiem" id="ap">AM</div>
+    </div>
+    <div class="day" id="day">Monday</div>
+    <div class="date" id="date">1 January 2027</div>
+  </div>
+
+  <div id="panel">
+    <h3>Customise your clock</h3>
+
+    <div class="f"><label>Palette presets</label>
+      <div class="swatches">
+        <span class="sw" data-bg="#F9D9E2" data-card="#2B2B2B" data-digit="#FFFFFF" data-accent="#DDD9F5" style="background:#F9D9E2"></span>
+        <span class="sw" data-bg="#DDD9F5" data-card="#2B2B2B" data-digit="#FFFFFF" data-accent="#F9D9E2" style="background:#DDD9F5"></span>
+        <span class="sw" data-bg="#D6F0DC" data-card="#2B2B2B" data-digit="#FFFFFF" data-accent="#D8E8F8" style="background:#D6F0DC"></span>
+        <span class="sw" data-bg="#D8E8F8" data-card="#2B2B2B" data-digit="#FFFFFF" data-accent="#FAE0D3" style="background:#D8E8F8"></span>
+        <span class="sw" data-bg="#FAE0D3" data-card="#2B2B2B" data-digit="#FFFFFF" data-accent="#F8F5CF" style="background:#FAE0D3"></span>
+        <span class="sw" data-bg="#F8F5CF" data-card="#2B2B2B" data-digit="#FFFFFF" data-accent="#D6F0DC" style="background:#F8F5CF"></span>
+        <span class="sw" data-bg="#FAF9F4" data-card="#DDD9F5" data-digit="#2B2B2B" data-accent="#F9D9E2" style="background:#FAF9F4"></span>
+      </div>
+    </div>
+
+    <div class="f"><label>Background</label><input type="color" id="i-bg"></div>
+    <div class="f"><label>Flip card</label><input type="color" id="i-card"></div>
+    <div class="f"><label>Digits</label><input type="color" id="i-digit"></div>
+    <div class="f"><label>Accent / badge</label><input type="color" id="i-accent"></div>
+    <div class="f"><label>Day &amp; date text</label><input type="color" id="i-sub"></div>
+
+    <div class="f"><label>24-hour clock</label><input type="checkbox" id="i-24"></div>
+    <div class="f"><label>Show seconds</label><input type="checkbox" id="i-sec" checked></div>
+    <div class="f"><label>Show day &amp; date</label><input type="checkbox" id="i-day" checked></div>
+    <div class="f"><label>Size</label><input type="range" id="i-scale" min="0.6" max="1.5" step="0.05"></div>
+
+    <div class="f"><button class="close" id="reset">Reset</button><button class="close" id="done">Done</button></div>
+  </div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var root=document.documentElement;
+  var DEFAULTS={bg:"#F9D9E2",card:"#2B2B2B",digit:"#FFFFFF",sub:"#2B2B2B",accent:"#DDD9F5",h24:false,sec:true,day:true,scale:1};
+  var cfg=Object.assign({},DEFAULTS);
+  try{var saved=JSON.parse(localStorage.getItem("creaoClockCfg")||"{}");cfg=Object.assign(cfg,saved);}catch(e){}
+
+  function apply(){
+    root.style.setProperty("--bg",cfg.bg);
+    root.style.setProperty("--card",cfg.card);
+    root.style.setProperty("--digit",cfg.digit);
+    root.style.setProperty("--accent",cfg.accent);
+    root.style.setProperty("--sub",cfg.sub);
+    root.style.setProperty("--scale",cfg.scale);
+    $("c2").style.display=cfg.sec?"":"none";
+    $("s").style.display=cfg.sec?"":"none";
+    $("ap").style.display=cfg.h24?"none":"";
+    $("day").style.display=cfg.day?"":"none";
+    $("date").style.display=cfg.day?"":"none";
+    $("i-bg").value=cfg.bg;$("i-card").value=cfg.card;$("i-digit").value=cfg.digit;
+    $("i-accent").value=cfg.accent;$("i-sub").value=cfg.sub;
+    $("i-24").checked=cfg.h24;$("i-sec").checked=cfg.sec;$("i-day").checked=cfg.day;
+    $("i-scale").value=cfg.scale;
+    try{localStorage.setItem("creaoClockCfg",JSON.stringify(cfg));}catch(e){}
+  }
+  function p(n){return String(n).padStart(2,"0")}
+  function tick(){
+    var d=new Date(),h=d.getHours(),m=d.getMinutes(),s=d.getSeconds(),ap=h<12?"AM":"PM";
+    if(!cfg.h24){h=h%12; if(h===0)h=12;}
+    $("h").textContent=p(h);$("m").textContent=p(m);$("s").textContent=p(s);
+    $("ap").textContent=ap;
+    $("day").textContent=d.toLocaleDateString(undefined,{weekday:"long"});
+    $("date").textContent=d.toLocaleDateString(undefined,{day:"numeric",month:"long",year:"numeric"});
+  }
+  $("gear").onclick=function(){$("panel").classList.add("open")};
+  $("done").onclick=function(){$("panel").classList.remove("open")};
+  $("reset").onclick=function(){cfg=Object.assign({},DEFAULTS);apply()};
+  $("i-bg").oninput=function(){cfg.bg=this.value;apply()};
+  $("i-card").oninput=function(){cfg.card=this.value;apply()};
+  $("i-digit").oninput=function(){cfg.digit=this.value;apply()};
+  $("i-accent").oninput=function(){cfg.accent=this.value;apply()};
+  $("i-sub").oninput=function(){cfg.sub=this.value;apply()};
+  $("i-24").onchange=function(){cfg.h24=this.checked;apply()};
+  $("i-sec").onchange=function(){cfg.sec=this.checked;apply()};
+  $("i-day").onchange=function(){cfg.day=this.checked;apply()};
+  $("i-scale").oninput=function(){cfg.scale=parseFloat(this.value);apply()};
+  Array.prototype.forEach.call(document.querySelectorAll(".sw"),function(el){
+    el.onclick=function(){
+      cfg.bg=el.dataset.bg;cfg.card=el.dataset.card;cfg.digit=el.dataset.digit;cfg.accent=el.dataset.accent;
+      cfg.sub=el.dataset.card==="#2B2B2B"?"#2B2B2B":"#2B2B2B";apply();
+    };
+  });
+  apply();tick();setInterval(tick,1000);
+})();
+</script>
+</body>
+</html>
